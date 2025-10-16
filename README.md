@@ -62,6 +62,30 @@ ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY="exact-matching-key" 
 
 The application automatically loads environment variables from a `.env` file in the project root using `python-dotenv`. You can also set environment variables directly in your shell.
 
+### Environment File Selection
+
+You can select different `.env` files to connect to different providers or model sets.
+
+- Precedence: `CLAUDE_PROXY_ENV_FILE` > CLI flags (`--env-file`, `--env`) > default `.env`.
+
+Examples:
+
+```bash
+# Explicit path
+uv run claude-code-proxy --env-file .env.azure
+
+# Named profile (loads .env.<name>)
+uv run claude-code-proxy --env ollama
+
+# Via environment variable (highest priority)
+CLAUDE_PROXY_ENV_FILE=.env.ollama uv run claude-code-proxy
+
+# Using python entry
+python start_proxy.py --env-file .env2
+```
+
+Tip: maintain separate files like `.env.openai`, `.env.azure`, `.env.ollama` for clarity.
+
 ### Environment Variables
 
 **Required:**

@@ -50,6 +50,13 @@ cp .env.example .env
 # Start the proxy server
 python start_proxy.py
 
+# Select a specific env file (multiple profiles)
+python start_proxy.py --env-file .env.azure
+# Or by name (loads .env.<name>)
+uv run claude-code-proxy --env ollama
+# Or via environment variable (highest priority)
+CLAUDE_PROXY_ENV_FILE=.env.ollama uv run claude-code-proxy
+
 # In another terminal, use with Claude Code
 ANTHROPIC_BASE_URL=http://localhost:8082 claude
 ```
@@ -72,6 +79,10 @@ ANTHROPIC_BASE_URL=http://localhost:8082 claude
 - Server runs on `http://localhost:8082`
 - Maps haiku → SMALL_MODEL, sonnet/opus → BIG_MODEL
 - Supports streaming, function calling, images
+
+## 🔁 Multiple Environment Profiles
+- Precedence: `CLAUDE_PROXY_ENV_FILE` > `--env-file`/`--env` > default `.env`.
+- Suggested files: `.env.openai`, `.env.azure`, `.env.ollama`.
 
 ## 🧪 Test Your Setup
 ```bash
