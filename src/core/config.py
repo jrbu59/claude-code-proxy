@@ -30,6 +30,10 @@ class Config:
         self.middle_model = os.environ.get("MIDDLE_MODEL", self.big_model)
         self.small_model = os.environ.get("SMALL_MODEL", "gpt-4o-mini")
         
+        # Feature flags
+        disable_tools_env = os.environ.get("DISABLE_TOOLS", "false").lower().strip()
+        self.disable_tools = disable_tools_env in ("1", "true", "yes", "on")
+        
     def validate_api_key(self):
         """Basic API key validation"""
         if not self.openai_api_key:

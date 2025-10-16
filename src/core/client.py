@@ -172,7 +172,20 @@ class OpenAIClient:
         # Billing issues
         if "billing" in error_str or "payment" in error_str:
             return "Billing issue. Please check your OpenAI account billing status."
-        
+
+        # Tool calls / functions unsupported by provider or model
+        if (
+            "tool call is not supported" in error_str
+            or "tools are not supported" in error_str
+            or "tool_calls are not supported" in error_str
+            or "function call is not supported" in error_str
+            or ("invalid_parameter_error" in error_str and "tool" in error_str)
+        ):
+            return (
+                "Tool calls are not supported by the upstream provider/model. "
+                "Remove tools/tool_choice from the request or switch to a model that supports tools."
+            )
+
         # Default: return original message
         return str(error_detail)
     

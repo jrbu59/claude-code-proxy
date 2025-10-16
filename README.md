@@ -62,6 +62,9 @@ ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY="exact-matching-key" 
 
 The application automatically loads environment variables from a `.env` file in the project root using `python-dotenv`. You can also set environment variables directly in your shell.
 
+New:
+- `DISABLE_TOOLS` (default `false`): When `true`, strips tools/tool_choice and assistant tool_calls from requests. Use this if your upstream provider/model does not support function/tool calling (e.g., some OpenAI-compatible endpoints like DashScope/Kimi).
+
 ### Environment File Selection
 
 You can select different `.env` files to connect to different providers or model sets.

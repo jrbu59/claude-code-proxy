@@ -54,7 +54,7 @@ def convert_claude_to_openai(
             openai_messages.append(openai_message)
 
             # Check if next message contains tool results
-            if i + 1 < len(claude_request.messages):
+            if i + 1 < len(claude_request.messages) and not config.disable_tools:
                 next_msg = claude_request.messages[i + 1]
                 if (
                     next_msg.role == Constants.ROLE_USER
@@ -92,8 +92,8 @@ def convert_claude_to_openai(
     if claude_request.top_p is not None:
         openai_request["top_p"] = claude_request.top_p
 
-    # Convert tools
-    if claude_request.tools:
+    # Convert tools (optional disable via config)
+    if claude_request.tools and not config.disable_tools:
         openai_tools = []
         for tool in claude_request.tools:
             if tool.name and tool.name.strip():
@@ -111,7 +111,7 @@ def convert_claude_to_openai(
             openai_request["tools"] = openai_tools
 
     # Convert tool choice
-    if claude_request.tool_choice:
+    if claude_request.tool_choice and not config.disable_tools:
         choice_type = claude_request.tool_choice.get("type")
         if choice_type == "auto":
             openai_request["tool_choice"] = "auto"
@@ -124,6 +124,14 @@ def convert_claude_to_openai(
             }
         else:
             openai_request["tool_choice"] = "auto"
+
+    # If tools are disabled, scrub assistant tool_calls from prior messages to avoid provider errors
+    if config.disable_tools:
+        for m in openai_messages:
+            if m.get("role") == Constants.ROLE_ASSISTANT and "tool_calls" in m:
+                m.pop("tool_calls", None)
+        openai_request.pop("tools", None)
+        openai_request.pop("tool_choice", None)
 
     return openai_request
 
