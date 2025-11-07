@@ -13,6 +13,10 @@ class OpenAIClient:
         self.api_key = api_key
         self.base_url = base_url
         self.custom_headers = custom_headers or {}
+        # Detect Azure usage either via explicit api_version or azure endpoint URL
+        self.is_azure = bool(api_version) or (
+            isinstance(base_url, str) and ("azure.com" in base_url or "openai.azure" in base_url)
+        )
         
         # Prepare default headers
         default_headers = {
@@ -41,6 +45,23 @@ class OpenAIClient:
             )
         self.active_requests: Dict[str, asyncio.Event] = {}
     
+    def _adapt_request_for_provider(self, request: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize request parameters for specific providers (e.g., Azure)."""
+        # Work on a shallow copy to avoid side effects
+        req = dict(request)
+        
+        # Azure's Chat Completions for some models require `max_completion_tokens`
+        if self.is_azure:
+            if "max_tokens" in req:
+                # Only translate when the azure-specific parameter isn't already set
+                if "max_completion_tokens" not in req:
+                    req["max_completion_tokens"] = req.pop("max_tokens")
+                else:
+                    # If both are present, drop the generic to avoid Azure 400s
+                    req.pop("max_tokens", None)
+        
+        return req
+    
     async def create_chat_completion(self, request: Dict[str, Any], request_id: Optional[str] = None) -> Dict[str, Any]:
         """Send chat completion to OpenAI API with cancellation support."""
         
@@ -50,9 +71,12 @@ class OpenAIClient:
             self.active_requests[request_id] = cancel_event
         
         try:
+            # Normalize request per provider
+            normalized_request = self._adapt_request_for_provider(request)
+
             # Create task that can be cancelled
             completion_task = asyncio.create_task(
-                self.client.chat.completions.create(**request)
+                self.client.chat.completions.create(**normalized_request)
             )
             
             if request_id:
@@ -109,14 +133,15 @@ class OpenAIClient:
             self.active_requests[request_id] = cancel_event
         
         try:
-            # Ensure stream is enabled
-            request["stream"] = True
-            if "stream_options" not in request:
-                request["stream_options"] = {}
-            request["stream_options"]["include_usage"] = True
+            # Ensure stream is enabled and normalize per provider
+            normalized_request = self._adapt_request_for_provider(request)
+            normalized_request["stream"] = True
+            if "stream_options" not in normalized_request:
+                normalized_request["stream_options"] = {}
+            normalized_request["stream_options"]["include_usage"] = True
             
             # Create the streaming completion
-            streaming_completion = await self.client.chat.completions.create(**request)
+            streaming_completion = await self.client.chat.completions.create(**normalized_request)
             
             async for chunk in streaming_completion:
                 # Check for cancellation before yielding each chunk

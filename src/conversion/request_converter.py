@@ -1,4 +1,6 @@
 import json
+import hashlib
+import uuid
 from typing import Dict, Any, List
 from src.core.constants import Constants
 from src.models.claude import ClaudeMessagesRequest, ClaudeMessage
@@ -6,6 +8,22 @@ from src.core.config import config
 import logging
 
 logger = logging.getLogger(__name__)
+
+TOOL_CALL_ID_MAX_LENGTH = 40
+
+
+def normalize_tool_call_id(raw_id: str, tool_id_map: Dict[str, str]) -> str:
+    """Normalize Claude tool IDs to satisfy Azure's length restriction."""
+    if not raw_id:
+        raw_id = uuid.uuid4().hex
+
+    if raw_id in tool_id_map:
+        return tool_id_map[raw_id]
+
+    hashed = hashlib.sha1(raw_id.encode("utf-8")).hexdigest()
+    normalized = hashed[:TOOL_CALL_ID_MAX_LENGTH]
+    tool_id_map[raw_id] = normalized
+    return normalized
 
 
 def convert_claude_to_openai(
@@ -18,6 +36,7 @@ def convert_claude_to_openai(
 
     # Convert messages
     openai_messages = []
+    tool_id_map: Dict[str, str] = {}
 
     # Add system message if present
     if claude_request.system:
@@ -50,7 +69,7 @@ def convert_claude_to_openai(
             openai_message = convert_claude_user_message(msg)
             openai_messages.append(openai_message)
         elif msg.role == Constants.ROLE_ASSISTANT:
-            openai_message = convert_claude_assistant_message(msg)
+            openai_message = convert_claude_assistant_message(msg, tool_id_map)
             openai_messages.append(openai_message)
 
             # Check if next message contains tool results
@@ -67,7 +86,7 @@ def convert_claude_to_openai(
                 ):
                     # Process tool results
                     i += 1  # Skip to tool result message
-                    tool_results = convert_claude_tool_results(next_msg)
+                    tool_results = convert_claude_tool_results(next_msg, tool_id_map)
                     openai_messages.extend(tool_results)
 
         i += 1
@@ -172,7 +191,9 @@ def convert_claude_user_message(msg: ClaudeMessage) -> Dict[str, Any]:
         return {"role": Constants.ROLE_USER, "content": openai_content}
 
 
-def convert_claude_assistant_message(msg: ClaudeMessage) -> Dict[str, Any]:
+def convert_claude_assistant_message(
+    msg: ClaudeMessage, tool_id_map: Dict[str, str]
+) -> Dict[str, Any]:
     """Convert Claude assistant message to OpenAI format."""
     text_parts = []
     tool_calls = []
@@ -189,7 +210,7 @@ def convert_claude_assistant_message(msg: ClaudeMessage) -> Dict[str, Any]:
         elif block.type == Constants.CONTENT_TOOL_USE:
             tool_calls.append(
                 {
-                    "id": block.id,
+                    "id": normalize_tool_call_id(block.id, tool_id_map),
                     "type": Constants.TOOL_FUNCTION,
                     Constants.TOOL_FUNCTION: {
                         "name": block.name,
@@ -213,7 +234,9 @@ def convert_claude_assistant_message(msg: ClaudeMessage) -> Dict[str, Any]:
     return openai_message
 
 
-def convert_claude_tool_results(msg: ClaudeMessage) -> List[Dict[str, Any]]:
+def convert_claude_tool_results(
+    msg: ClaudeMessage, tool_id_map: Dict[str, str]
+) -> List[Dict[str, Any]]:
     """Convert Claude tool results to OpenAI format."""
     tool_messages = []
 
@@ -224,7 +247,9 @@ def convert_claude_tool_results(msg: ClaudeMessage) -> List[Dict[str, Any]]:
                 tool_messages.append(
                     {
                         "role": Constants.ROLE_TOOL,
-                        "tool_call_id": block.tool_use_id,
+                        "tool_call_id": normalize_tool_call_id(
+                            block.tool_use_id, tool_id_map
+                        ),
                         "content": content,
                     }
                 )
