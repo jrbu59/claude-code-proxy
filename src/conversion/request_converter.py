@@ -206,6 +206,8 @@ def apply_reasoning_parameters(
     effort: Optional[str] = None
     verbosity: Optional[str] = None
 
+    tools_present = bool(openai_request.get("tools"))
+
     if thinking_config:
         enable_reasoning = thinking_config.enabled
         effort = thinking_config.effort or config.reasoning_effort
@@ -214,6 +216,36 @@ def apply_reasoning_parameters(
         enable_reasoning = True
         effort = config.reasoning_effort
         verbosity = config.reasoning_verbosity
+
+    provider_key = config.resolve_provider_key()
+    supports_thinking = False
+    if enable_reasoning:
+        supports_thinking = bool(
+            config.reasoning_chat_prefixes
+            and model_name
+            and any(model_name.lower().startswith(prefix.lower()) for prefix in config.reasoning_chat_prefixes)
+        )
+
+        if not supports_thinking:
+            enable_reasoning = False
+
+        if supports_thinking and provider_key in ("azure", "openai"):
+            effort = None
+            verbosity = None
+
+    if tools_present and enable_reasoning:
+        logger.info(
+            "Thinking disabled for model=%s because tool calls are present",
+            model_name,
+        )
+        enable_reasoning = False
+
+    if enable_reasoning and contains_tool_messages(openai_request["messages"]):
+        logger.info(
+            "Thinking disabled for model=%s because tool interactions are present",
+            model_name,
+        )
+        enable_reasoning = False
 
     if not enable_reasoning:
         return "chat_completions", openai_request
@@ -229,10 +261,14 @@ def apply_reasoning_parameters(
         )
         return "chat_completions", openai_request
 
-    if chat_reasoning:
+    if chat_reasoning and enable_reasoning:
         chat_request = dict(openai_request)
         extra_body = dict(chat_request.get("extra_body") or {})
         extra_body.setdefault("enable_thinking", True)
+        if effort:
+            extra_body.setdefault("reasoning_effort", effort)
+        if verbosity:
+            extra_body.setdefault("reasoning_verbosity", verbosity)
         chat_request["extra_body"] = extra_body
         max_tokens = chat_request.get("max_tokens")
         limit = max(1, config.reasoning_chat_max_output)

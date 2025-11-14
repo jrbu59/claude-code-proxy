@@ -51,7 +51,8 @@ def _extract_reasoning_texts(raw: Any) -> Iterable[str]:
 def _merge_reasoning_fields(delta: Dict[str, Any]) -> Iterable[str]:
     """Collect reasoning text from known delta field names."""
 
-    for field in ("reasoning_content", "reasoning", "thought", "thinking"):
+    allowed_fields = ("reasoning_content", "reasoning", "thought", "thinking")
+    for field in allowed_fields:
         if field in delta and delta[field] is not None:
             texts = _extract_reasoning_texts(delta[field])
             if texts:

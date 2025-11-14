@@ -10,7 +10,7 @@ Kimi（DashScope）、GLM 等上游模型已经支持思考/推理模式，会�
 
 在 `.env.<provider>` 中通过以下环境变量控制思考模式：
 
-- `REASONING_CHAT_PREFIXES`：匹配使用 OpenAI Chat Completions API 的推理模型前缀，例如 `kimi`、`glm`。
+- `REASONING_CHAT_PREFIXES`：匹配使用 Chat Completions API 并支持思考模式的模型前缀，例如 `kimi`、`glm`。对于当前不支持 `enable_thinking` 的提供商（如 Azure OpenAI），可通过设为空或不匹配的前缀自动跳过思考参数，避免 400 错误。
 - `REASONING_DEFAULT_ENABLED`：设为 `true` 时，对匹配到的模型自动开启思考模式。
 - `REASONING_CHAT_MAX_OUTPUT_TOKENS`、`PROVIDER_MAX_OUTPUT_TOKENS`：限制推理场景的最大输出，避免超出上游限制。
 
@@ -27,9 +27,10 @@ PROVIDER_MAX_OUTPUT_TOKENS=32768
 
 `src/conversion/request_converter.py` 中的 `apply_reasoning_parameters` 会：
 
-1. 判断请求模型名是否匹配 `REASONING_CHAT_PREFIXES` 或 `REASONING_MODEL_PREFIXES`。
-2. 若开启推理，在 Chat Completions 模式下写入 `extra_body.enable_thinking = True`，并根据配置裁剪 `max_tokens`。
-3. 若未来接入 Responses API 推理模型，可通过同一函数扩展。
+1. 判断请求模型名是否匹配 `REASONING_CHAT_PREFIXES` 或 `REASONING_MODEL_PREFIXES`，并确认该提供商支持思考模式。对于 Azure OpenAI 等不支持 `enable_thinking` 的提供商，会自动跳过相关参数。
+2. 若开启推理，在 Chat Completions 模式下写入 `extra_body.enable_thinking = True`，并在可用时附带 `reasoning_effort`、`reasoning_verbosity`，同时根据配置裁剪 `max_tokens`。
+3. 当请求包含工具定义（Claude 的函数调用）时，为兼容 DeepSeek 等模型在思考模式下不支持 function calling 的限制，代理会自动关闭思考模式并记录日志。
+4. 若未来接入 Responses API 推理模型，可通过同一函数扩展。
 
 ## 响应侧转换
 
@@ -43,7 +44,7 @@ PROVIDER_MAX_OUTPUT_TOKENS=32768
    - 多个 `content_block_delta (type=thinking_delta)`
    - `content_block_stop`
 3. 与正文、工具调用、usage 等事件并行输出，确保 CLI 能逐步显示思考过程。
-4. 断线/取消时仍会清理未关闭的 `thinking` 块并输出错误事件。
+4. 断线/取消时仍会清理未关闭的 `thinking` 块并输出错误事件；若上游未返回 usage，代理会基于输出字符数估算 token，保证 Claude 不再显示 `nan`。
 
 ### 缓冲与非流式回放
 
