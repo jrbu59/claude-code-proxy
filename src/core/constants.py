@@ -9,6 +9,7 @@ class Constants:
     CONTENT_IMAGE = "image"
     CONTENT_TOOL_USE = "tool_use"
     CONTENT_TOOL_RESULT = "tool_result"
+    CONTENT_THINKING = "thinking"
     
     TOOL_FUNCTION = "function"
     
@@ -24,6 +25,7 @@ class Constants:
     EVENT_CONTENT_BLOCK_STOP = "content_block_stop"
     EVENT_CONTENT_BLOCK_DELTA = "content_block_delta"
     EVENT_PING = "ping"
-    
+
     DELTA_TEXT = "text_delta"
     DELTA_INPUT_JSON = "input_json_delta"
+    DELTA_THINKING = "thinking_delta"

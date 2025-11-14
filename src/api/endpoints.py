@@ -61,7 +61,7 @@ async def create_message(request: ClaudeMessagesRequest, http_request: Request, 
         request_id = str(uuid.uuid4())
 
         # Convert Claude request to OpenAI format
-        openai_request = convert_claude_to_openai(request, model_manager)
+        openai_request_bundle = convert_claude_to_openai(request, model_manager)
 
         # Check if client disconnected before processing
         if await http_request.is_disconnected():
@@ -71,7 +71,7 @@ async def create_message(request: ClaudeMessagesRequest, http_request: Request, 
             # Streaming response - wrap in error handling
             try:
                 openai_stream = openai_client.create_chat_completion_stream(
-                    openai_request, request_id
+                    openai_request_bundle, request_id
                 )
                 return StreamingResponse(
                     convert_openai_streaming_to_claude_with_cancellation(
@@ -105,7 +105,7 @@ async def create_message(request: ClaudeMessagesRequest, http_request: Request, 
         else:
             # Non-streaming response
             openai_response = await openai_client.create_chat_completion(
-                openai_request, request_id
+                openai_request_bundle, request_id
             )
             claude_response = convert_openai_to_claude_response(
                 openai_response, request

@@ -4,10 +4,16 @@ Test script for HTTP request cancellation functionality.
 This script demonstrates how client disconnection cancels ongoing requests.
 """
 
+import os
 import asyncio
 import httpx
 import json
 import time
+import pytest
+
+# Skip unless integration env is enabled, since these tests require a running proxy.
+if not os.getenv("CLAUDE_PROXY_INTEGRATION"):
+    pytestmark = pytest.mark.skip(reason="requires running proxy server")
 
 async def test_non_streaming_cancellation():
     """Test cancellation for non-streaming requests."""

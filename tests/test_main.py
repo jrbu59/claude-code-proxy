@@ -1,9 +1,15 @@
 """Test script for Claude to OpenAI proxy."""
 
+import os
 import asyncio
 import json
 import httpx
+import pytest
 from dotenv import load_dotenv
+
+# Skip integration tests unless explicitly requested.
+if not os.getenv("CLAUDE_PROXY_INTEGRATION"):
+    pytestmark = pytest.mark.skip(reason="requires running proxy server")
 
 load_dotenv()
 

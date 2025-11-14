@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import List, Dict, Any, Optional, Union, Literal
 
 class ClaudeContentBlockText(BaseModel):
@@ -15,6 +15,12 @@ class ClaudeContentBlockToolUse(BaseModel):
     name: str
     input: Dict[str, Any]
 
+
+class ClaudeContentBlockThinking(BaseModel):
+    type: Literal["thinking"]
+    text: str = ""
+    thinking: Optional[Any] = None
+
 class ClaudeContentBlockToolResult(BaseModel):
     type: Literal["tool_result"]
     tool_use_id: str
@@ -26,7 +32,18 @@ class ClaudeSystemContent(BaseModel):
 
 class ClaudeMessage(BaseModel):
     role: Literal["user", "assistant"]
-    content: Union[str, List[Union[ClaudeContentBlockText, ClaudeContentBlockImage, ClaudeContentBlockToolUse, ClaudeContentBlockToolResult]]]
+    content: Union[
+        str,
+        List[
+            Union[
+                ClaudeContentBlockText,
+                ClaudeContentBlockImage,
+                ClaudeContentBlockToolUse,
+                ClaudeContentBlockToolResult,
+                ClaudeContentBlockThinking,
+            ]
+        ],
+    ]
 
 class ClaudeTool(BaseModel):
     name: str
@@ -35,6 +52,8 @@ class ClaudeTool(BaseModel):
 
 class ClaudeThinkingConfig(BaseModel):
     enabled: bool = True
+    effort: Optional[Literal["minimal", "low", "medium", "high"]] = None
+    verbosity: Optional[Literal["low", "medium", "high"]] = None
 
 class ClaudeMessagesRequest(BaseModel):
     model: str
